@@ -1,0 +1,35 @@
+name: Build Android APK
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: unzip -oq lingo-app-phone.zip
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - working-directory: lingo-app
+        run: |
+          flutter create . --project-name lingo_app --org com.lingo --platforms=android
+          M=android/app/src/main/AndroidManifest.xml
+          sed -i 's#<application#<uses-permission android:name="android.permission.INTERNET"/>\n    <application#' $M
+          sed -i 's#<queries>#<queries><intent><action android:name="android.intent.action.TTS_SERVICE"/></intent>#' $M
+          sed -i 's#android:label="[^"]*"#android:label="Lingo 语言学习"#' $M
+          flutter pub get
+          flutter build apk --release
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "apk-${{ github.run_number }}"
+          name: "Android APK ${{ github.run_number }}"
+          files: lingo-app/build/app/outputs/flutter-apk/app-release.apk
